@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HowdyChallenge": {
+      "commandName": "Project",
+      "commandLineArgs": "./answers.json"
+    }
+  }
+}
