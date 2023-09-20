@@ -28,39 +28,31 @@ namespace HowdyChallenge
             Func<IEnumerable<float>, float> personEvaluator, 
             Func<IEnumerable<float>, float> groupEvaluator)
         {
-            var data = answers.Select(a => new 
-                // combine single session answers into single evaluation value
-                {
-                    Month = new DateTime(a.AnsweredOn.Year, a.AnsweredOn.Month, 1), 
-                    Group = a.GroupId, 
-                    Employee = a.EmployeeId, 
-                    Evaluation = sessionEvaluator(a) 
-                })
-                // group by month because score is evaluate on monthly basis
-                .GroupBy(a => a.Month)
-                .Select(mg => new
-                {
-                    Month = mg.Key,
-                    // group by group ID because score is to be evaluated per group of employees
-                    MontlyData = mg.GroupBy(g => g.Group).Select(gg => new
-                    {
-                        Group = gg.Key,
-                        
-                        // evaluate group score based on given calculation function
-                        Score = groupEvaluator(
-                            // group by employee to calculate score for employees with multiple sessions per month
-                            gg.GroupBy(g => g.Employee).Select(eg => personEvaluator(eg.Select(a => a.Evaluation))) 
-                        )
-                    })
-                });
-
-            // TODO: this can be even simplyfied into single linq query
-            return data.SelectMany(mg => mg.MontlyData.Select(gg => new Evaluation()
+            var data = answers.Select(a => new
+            // combine single session answers into single evaluation value
             {
-                Month = mg.Month,
-                Group = gg.Group,
-                Value = gg.Score,
-            }));
+                Month = new DateTime(a.AnsweredOn.Year, a.AnsweredOn.Month, 1),
+                Group = a.GroupId,
+                Employee = a.EmployeeId,
+                Evaluation = sessionEvaluator(a)
+            })
+            // group by month (and group) because score is evaluate on monthly basis
+            .GroupBy(a => new { a.Month, a.Group })
+            .Select(g => new Evaluation()
+            {
+                Month = g.Key.Month,
+                Group = g.Key.Group,
+                // group evaluator will calculate group score for this month
+                Value = groupEvaluator(
+                    // group score is evaluated taking each employee into consideration only once
+                    g.GroupBy(gg => gg.Employee).Select(eg => 
+                        // if employee answered multiple times in given month, single value is calculated
+                        personEvaluator(eg.Select(a => a.Evaluation))
+                    )
+                )
+            });
+
+            return data;
         }
 
         /// <summary>
